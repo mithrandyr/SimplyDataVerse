@@ -16,6 +16,7 @@ Function Connect-DataVerse {
     $Script:baseHeaders = AzureConnect -EnvironmentUrl $EnvironmentUrl
 
     # Set baseURI
+    if(-not $EnvironmentUrl.EndsWith("/")) { $EnvironmentUrl += "/" }
     $Script:baseURI = $environmentUrl + 'api/data/v9.2/'
 }
 
