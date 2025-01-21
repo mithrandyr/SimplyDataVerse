@@ -14,6 +14,7 @@ Function Connect-DataVerse {
 
     Write-Verbose "Connecting to $EnvironmentUrl..."
     $Script:baseHeaders = AzureConnect -EnvironmentUrl $EnvironmentUrl
+    CacheReset
 
     # Set baseURI
     if(-not $EnvironmentUrl.EndsWith("/")) { $EnvironmentUrl += "/" }

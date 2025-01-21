@@ -22,3 +22,11 @@ Function CacheGet {
 }
 
 Function CacheClear { $Script:Cache.Clear() }
+Function CacheReset {
+    Param([string[]]$KeepKeys = @("OrgUrls"))
+    foreach($key in $Script:Cache.Keys) {
+        if($key -notin $KeepKeys) {
+            $Script:Cache.Remove($key)
+        }
+    }
+}
