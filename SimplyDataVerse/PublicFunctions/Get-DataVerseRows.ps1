@@ -2,12 +2,13 @@ function Get-DataVerseRows {
     [cmdletbinding()]
     param (
        [Parameter(Mandatory)][String]$EntitySetName
-       , [Parameter()][String[]]$Columns
+       , [Parameter()][Switch]$CanUpdate
        , [Parameter()][switch]$IncludeAnnotations
     )
     $ep = $EntitySetName
-    if($Columns) {
-        $ep = QueryAppend $query ('$select=' + ($columns -join ","))
+    if($CanUpdate) {
+        $columns = Get-DataVerseColumns -LogicalName (GetLogicalName -EntitySetName $EntitySetName) -CanUpdate | Select-Object -ExpandProperty LogicalName
+        $ep = QueryAppend $ep ('$select=' + ($columns -join ","))
     }
     $addHdrs = @{'If-None-Match'= ""}
     if($IncludeAnnotations) { $addHdrs['Prefer'] ='odata.include-annotations="*"' }
@@ -17,24 +18,7 @@ function Get-DataVerseRows {
         EndPoint = $ep
         AddHeaders = $addHdrs
     }
-    Invoke-DataVerse @request | Select-Object -ExpandProperty value
-}
-
-Register-ArgumentCompleter -CommandName "Get-DataVerseRows" -ParameterName EntitySetName -ScriptBlock {
-    [OutputType([System.Management.Automation.CompletionResult])]
-    param(
-        [string] $CommandName,
-        [string] $ParameterName,
-        [string] $WordToComplete,
-        [System.Management.Automation.Language.CommandAst] $CommandAst,
-        [System.Collections.IDictionary] $FakeBoundParameters
-    )
-    
-    $result = CacheGet "EntitySetNames"
-    if(-not $result) {
-        $result = Get-DataVerseTables -AllTables | Select-Object -ExpandProperty EntitySetName
-        CacheAdd -Key "EntitySetNames" -Value $result
-    }
-
-    $result | Where-Object {$_ -like "*$WordToComplete*"}
+    Invoke-DataVerse @request |
+        Select-Object -ExpandProperty value |
+        Select-Object -ExcludeProperty "@odata.etag"
 }

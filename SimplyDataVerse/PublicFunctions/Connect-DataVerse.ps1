@@ -14,11 +14,12 @@ Function Connect-DataVerse {
 
     Write-Verbose "Connecting to $EnvironmentUrl..."
     $Script:baseHeaders = AzureConnect -EnvironmentUrl $EnvironmentUrl
-    CacheReset
-
+    
     # Set baseURI
     if(-not $EnvironmentUrl.EndsWith("/")) { $EnvironmentUrl += "/" }
     $Script:baseURI = $environmentUrl + 'api/data/v9.2/'
+    
+    CacheReset
 }
 
 Register-ArgumentCompleter -CommandName "Connect-DataVerse" -ParameterName Name -ScriptBlock {

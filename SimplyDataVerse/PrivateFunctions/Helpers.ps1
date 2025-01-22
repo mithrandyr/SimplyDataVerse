@@ -9,3 +9,12 @@ function QueryAppend {
     }
     $query
 }
+
+function GetLogicalName {
+    Param([Parameter(Mandatory)][String]$EntitySetName)
+    CacheLoadTables -Return |
+        Where-Object EntitySetName -eq $EntitySetName |
+        Select-Object -First 1 -ExpandProperty LogicalName |
+        Write-Output
+}
+Export-ModuleMember GetLogicalName
