@@ -3,17 +3,11 @@ function New-DataVerseRow {
     param (
        [Parameter(Mandatory)][String]$EntitySetName
     )
-    $ep = $EntitySetName
-    if($Columns) {
-        $ep = QueryAppend $query ('$select=' + ($columns -join ","))
-    }
-    $addHdrs = @{'If-None-Match'= ""}
-    if($IncludeAnnotations) { $addHdrs['Prefer'] ='odata.include-annotations="*"' }
+    
+    $columns = Get-DataVerseColumns -EntitySetName $EntitySetName -CanUpdate |
+        Select-Object -ExpandProperty LogicalName
+    $ht = [ordered]@{PSTypeName = "DataVerse.$EntitySetName"}
+    foreach($c in $columns) { $ht[$c] = $null }
 
-    $request = @{
-        Method = "GET"
-        EndPoint = $ep
-        AddHeaders = $addHdrs
-    }
-    Invoke-DataVerse @request | Select-Object -ExpandProperty value
+    return [PSCustomObject]$ht    
 }

@@ -1,11 +1,11 @@
 function Get-DataVerseColumns {
     [cmdletbinding()]
-    param(
-        [Parameter(Mandatory)][string]$LogicalName
+    param([Parameter(Mandatory)][string]$EntitySetName
         , [Parameter()][switch]$CanUpdate
         , [Parameter()][switch]$IsCustom
     )
 
+    $LogicalName = [TableCache]::LogicalName($EntitySetName)
     $cols = @(
         "MetadataId"
         "LogicalName"

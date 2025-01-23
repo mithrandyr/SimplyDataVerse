@@ -10,7 +10,8 @@ Function Find-DataVerseOrg {
     [cmdletbinding()]
     Param([switch]$IgnoreCache)
     
-    $result = CacheGet "OrgUrls"
+    #$result = CacheGet "OrgUrls"
+    $result = [GeneralCache]::Get("OrgUrls")
     if($IgnoreCache -or -not $result) {
         Write-Verbose "Querying Azure..."
         $headers = AzureConnect -environmentUrl "https://globaldisco.crm.dynamics.com/"
@@ -22,7 +23,8 @@ Function Find-DataVerseOrg {
         }
         $response = Invoke-RestMethod @request
         $result = $response.value
-        CacheAdd -Key "OrgUrls" -Value $result
+        #CacheAdd -Key "OrgUrls" -Value $result
+        [GeneralCache]::Add("OrgUrls", $result)
     }
     $result
 }

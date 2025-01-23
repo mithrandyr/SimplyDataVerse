@@ -19,7 +19,7 @@ Function Connect-DataVerse {
     if(-not $EnvironmentUrl.EndsWith("/")) { $EnvironmentUrl += "/" }
     $Script:baseURI = $environmentUrl + 'api/data/v9.2/'
     
-    CacheReset
+    [TableCache]::Initialize()
 }
 
 Register-ArgumentCompleter -CommandName "Connect-DataVerse" -ParameterName Name -ScriptBlock {

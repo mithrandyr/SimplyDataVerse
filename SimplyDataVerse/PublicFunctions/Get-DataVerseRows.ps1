@@ -7,7 +7,7 @@ function Get-DataVerseRows {
     )
     $ep = $EntitySetName
     if($CanUpdate) {
-        $columns = Get-DataVerseColumns -LogicalName (GetLogicalName -EntitySetName $EntitySetName) -CanUpdate | Select-Object -ExpandProperty LogicalName
+        $columns = Get-DataVerseColumns -EntitySetName -CanUpdate | Select-Object -ExpandProperty LogicalName
         $ep = QueryAppend $ep ('$select=' + ($columns -join ","))
     }
     $addHdrs = @{'If-None-Match'= ""}
@@ -20,5 +20,13 @@ function Get-DataVerseRows {
     }
     Invoke-DataVerse @request |
         Select-Object -ExpandProperty value |
-        Select-Object -ExcludeProperty "@odata.etag"
+        ForEach-Object {
+            if($CanUpdate) {
+                $ht = [ordered]@{ PSTypeName = "DataVerse.$EntitySetName" }
+                foreach($c in $columns) { $ht[$c] = $_.$c }
+                [PSCustomObject]$ht
+            } else {
+                $_
+            }
+        }
 }
