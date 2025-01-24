@@ -5,7 +5,7 @@ Class CacheSvc {
     [void] Add([string]$key, $value, [int]$age) {
         $this.Cache[$key] = @{
             Expires = (Get-Date).AddSeconds($age)
-            Value = $value
+            Value   = $value
         }
     }
 
@@ -14,7 +14,7 @@ Class CacheSvc {
     }
 
     [object] Get($key) {
-        if($this.IsValid($key)) { return $this.Cache[$key].Value }
+        if ($this.IsValid($key)) { return $this.Cache[$key].Value }
         else { return $null }
     }
     
@@ -22,82 +22,134 @@ Class CacheSvc {
     [string[]] Keys() { return $this.Cache.Keys }
 }
 
-Class GeneralCache:CacheSvc {
-    hidden static [CacheSvc] $_instance = [CacheSvc]::new()
-    
-    static [void] Add([string]$key, $value) {
-        [GeneralCache]::_instance.Add($key, $value)
-    }
-    
-    static [void] Add([string]$key, $value, [int]$age) {
-        [GeneralCache]::_instance.Add($key, $value, $age)
-    }
+Class SchemaCache {
+    hidden [CacheSvc] $_tables = [CacheSvc]::new()
+    hidden [CacheSvc] $_columns = [CacheSvc]::new()
 
-    static [bool] IsValid([string]$key) {
-        return [GeneralCache]::_instance.IsValid($key)
-    }
-
-    static [object] Get($key) {
-        return [GeneralCache]::_instance.Get($key)
-    }
-    
-    static [void] Clear() { [GeneralCache]::_instance.Clear() }
-}
-
-Class TableCache:CacheSvc {
-    hidden static [CacheSvc] $_tables = [CacheSvc]::new()
-    hidden static [CacheSvc] $_columns = [CacheSvc]::new()
-
-    static [void] Initialize() {
-        [TableCache]::_tables.Clear()
-        [TableCache]::_columns.Clear()
+    [void] Initialize() {
+        $this._tables.Clear()
+        $this._columns.Clear()
 
         Get-DataVerseTables -AllTables |
-            Select-Object EntitySetName, LogicalName, PrimaryIdAttribute, PrimaryNameAttribute, IsManaged |
-            ForEach-Object {
-                [TableCache]::_tables.Add($_.EntitySetName, $_)
-                if(-not $_.IsManaged) {
-                    [TableCache]::_columns.Add($_.EntitySetName, $columns)
-                    $columns = Get-DataVerseColumns -EntitySetName $_.EntitySetName
-                }
+        Select-Object EntitySetName, LogicalName, PrimaryIdAttribute, PrimaryNameAttribute, IsManaged |
+        ForEach-Object {
+            $this._tables.Add($_.EntitySetName, $_)
+            if (-not $_.IsManaged) {
+                $this._columns.Add($_.EntitySetName, $columns)
+                $columns = Get-DataVerseColumns -EntitySetName $_.EntitySetName
             }
+        }
     }
 
-    static [psobject] Table([string]$entitySetName) {
-        if(-not [TableCache]::_tables.IsValid($entitySetName)) {
+    [psobject] Table([string]$entitySetName) {
+        if (-not $this._tables.IsValid($entitySetName)) {
             $tbl = Get-DataVerseTables -EntitySetName $entitySetName
-            [TableCache]::_tables.Add($entitySetName, $tbl)
+            $this._tables.Add($entitySetName, $tbl)
             return $tbl
-        } else {
-            return [TableCache]::_tables.Get($entitySetName)
+        }
+        else {
+            return $this._tables.Get($entitySetName)
         }
     }
     
-    static [string] LogicalName([string]$entitySetName) {
-        return [TableCache]::Table($entitySetName).LogicalName
+    [string] LogicalName([string]$entitySetName) {
+        return $this.Table($entitySetName).LogicalName
     }
     
-    static [string] TablePrimaryId([string]$entitySetName) {
-        return [TableCache]::Table($entitySetName).PrimaryIdAttribute
+    [string] TablePrimaryId([string]$entitySetName) {
+        return $this.Table($entitySetName).PrimaryIdAttribute
     }
 
-    static [string[]] EntitySetNames() {
-        return [TableCache]::_tables.Keys()
+    [string[]] EntitySetNames() {
+        return $this._tables.Keys()
     }
 
-    static [psobject[]] Columns([string]$entitySetName) {
-        if(-not [TableCache]::_columns.IsValid($entitySetName)) {
+    [psobject[]] Columns([string]$entitySetName) {
+        if (-not $this._columns.IsValid($entitySetName)) {
             $columns = Get-DataVerseColumns -EntitySetName $entitySetName
-            [TableCache]::_columns.Add($entitySetName, $columns)
+            $this._columns.Add($entitySetName, $columns)
             return $columns
-        } else {
-            return [TableCache]::_columns.Get($entitySetName)
+        }
+        else {
+            return $this._columns.Get($entitySetName)
         }
     }
-    static [psobject[]] ColumnsCanUpdate([string]$entitySetName) {
-        return [TableCache]::Columns($entitySetName).Where({$_.IsValidForUpdate})
+    [psobject[]] ColumnsCanUpdate([string]$entitySetName) {
+        return $this.Columns($entitySetName).Where({ $_.IsValidForUpdate })
     }
     
+}
+
+Class SDVApp {
+    static [CacheSvc] $Cache = [CacheSvc]::new()
+    static [SchemaCache] $Schema = [SchemaCache]::new()
+
+    static [void] InitializeSchema() { [SDVApp]::Schema.Initialize() }
+    
+    static [hashtable] GetBaseHeaders() { return [SDVApp]::GetBaseHeaders([SDVApp]::GetToken()) }
+    static [hashtable] GetBaseHeaders([string]$token) {
+        return @{
+            'Authorization'    = 'Bearer ' + $token
+            'Accept'           = 'application/json'
+            'OData-MaxVersion' = '4.0'
+            'OData-Version'    = '4.0'
+        }
+    }     
+
+    static [string] GetToken() {
+        if (-not [SDVApp]::_environmentUri) {
+            throw [System.InvalidOperationException]::new("Cannot call 'GetToken()' unless 'SetEnvironment()' has been called first!")
+        }
+        return [SDVApp]::GetToken([SDVApp]::_environmentUri)
+    }
+
+    static [string] GetToken([string]$uri) {
+        if (-not [SDVApp]::Cache.IsValid("IsAuthenticated")) {
+            ## Login interactively if not already logged in
+            if ($null -eq (Get-AzTenant -ErrorAction SilentlyContinue)) {
+                Connect-AzAccount -ErrorAction Stop | Out-Null
+            }
+            [SDVApp]::Cache.Add("IsAuthenticated", $true, 15 * 60)
+        }
+        
+        $key = "[TOKEN]$uri"
+        $token = [SDVApp]::Cache.Get($key)
+        if (-not $token) {
+            $secureToken = (Get-AzAccessToken -ResourceUrl $uri -AsSecureString).Token
+
+            # Convert the secure token to a string
+            $token = [System.Net.NetworkCredential]::new("", $secureToken).Password
+            [SDVApp]::Cache.Add($key, $token)
+        }
+        return $token
+    }
+
+    static [psobject[]] DataVerseEnvironments() { return [SDVApp]::DataVerseEnvironments($false) }
+    static [psobject[]] DataVerseEnvironments([bool]$force) {
+        $result = [SDVApp]::Cache.Get("DataVerseEnvironments")
+        if ($force -or -not $result) {
+            $request = @{
+                Uri     = 'https://globaldisco.crm.dynamics.com/api/discovery/v2.0/Instances?$select=ApiUrl,FriendlyName'
+                Method  = "GET"
+                Headers = [SDVApp]::GetBaseHeaders([SDVApp]::GetToken("https://globaldisco.crm.dynamics.com/"))
+            }
+            $response = Invoke-RestMethod @request
+            $result = $response.value
+            [SDVApp]::Cache.Add("DataVerseEnvironments", $result)
+        }
+        return $result        
+    }
+
+    #region "Environment/Baseuri/Headers/Token"
+    hidden static [string]$_environmentUri
+    hidden static [string]$_baseUri
+    static [void] SetEnvironment([string]$uri) {
+        if (-not $uri.EndsWith("/")) { $uri += "/" }
+        [SDVApp]::_environmentUri = $uri
+        [SDVApp]::_baseUri = $uri + 'api/data/v9.2/'
+    }
+    static [string] GetBaseUri() { return [SDVApp]::_baseUri }
+    #endregion
 }
 
 #region Old

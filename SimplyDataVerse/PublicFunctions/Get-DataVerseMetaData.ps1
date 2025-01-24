@@ -1,10 +1,10 @@
 Function Get-DataVerseMetaData {
     Param()
 
-    $hdrs = $Script:baseHeaders.Clone()
+    $hdrs = [SDVApp]::GetBaseHeaders()
     $hdrs.Remove('Accept')
     $request = @{
-        Uri     = $Script:baseURI + '$metadata'
+        Uri     = [SDVApp]::GetBaseUri() + '$metadata'
         Method  = "GET"
         Headers = $hdrs
     }

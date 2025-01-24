@@ -6,20 +6,17 @@ Function Connect-DataVerse {
     )
     
     if($Name) {
-        $EnvironmentUrl = Find-DataVerseOrg | Where-Object FriendlyName -eq $Name | Select-Object -ExpandProperty ApiUrl
+        $EnvironmentUrl = [SDVApp]::DataVerseEnvironments() | Where-Object FriendlyName -eq $Name | Select-Object -ExpandProperty ApiUrl
         if(-not $EnvironmentUrl) {
             throw "Could not find EnvironmentUrl for '$Name', try again and specify '-EnvironmentUrl'"
         }
     }
-
+    [SDVApp]::SetEnvironment($EnvironmentUrl)
     Write-Verbose "Connecting to $EnvironmentUrl..."
-    $Script:baseHeaders = AzureConnect -EnvironmentUrl $EnvironmentUrl
+    [SDVApp]::GetToken() | Out-Null
     
-    # Set baseURI
-    if(-not $EnvironmentUrl.EndsWith("/")) { $EnvironmentUrl += "/" }
-    $Script:baseURI = $environmentUrl + 'api/data/v9.2/'
-    
-    [TableCache]::Initialize()
+    Write-Verbose "Initializing Schema Cache..."
+    [SDVApp]::InitializeSchema()
 }
 
 Register-ArgumentCompleter -CommandName "Connect-DataVerse" -ParameterName Name -ScriptBlock {
@@ -31,17 +28,12 @@ Register-ArgumentCompleter -CommandName "Connect-DataVerse" -ParameterName Name 
         [System.Management.Automation.Language.CommandAst] $CommandAst,
         [System.Collections.IDictionary] $FakeBoundParameters
     )
-    $CompletionResults = [System.Collections.Generic.List[System.Management.Automation.CompletionResult]]::new()
+    
     if($WordToComplete.StartsWith("'")) {
         $WordToComplete = $WordToComplete.Trim("'").Trim()
     }    
     
     Find-DataVerseOrg |
         Where-Object FriendlyName -like "*$WordToComplete*" |
-        ForEach-Object {
-            $r = "'{0}'" -f $_.FriendlyName
-            $CompletionResults.add([System.Management.Automation.CompletionResult]::new($r)) | Out-Null
-        }
-    
-    return $CompletionResults
+        ForEach-Object { "'{0}'" -f $_.FriendlyName }
 }

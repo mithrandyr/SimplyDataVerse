@@ -5,9 +5,9 @@ Function Invoke-DataVerse {
         , [hashtable]$AddHeaders = @{})
 
     $request = @{
-        Uri     = $Script:baseURI + $EndPoint
+        Uri     = [SDVApp]::GetBaseUri() + $EndPoint
         Method  = $Method
-        Headers = $Script:baseHeaders.Clone() + $AddHeaders
+        Headers = [SDVApp]::GetBaseHeaders() + $AddHeaders
     }
     
     try {

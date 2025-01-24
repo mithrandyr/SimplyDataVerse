@@ -5,7 +5,7 @@ function Get-DataVerseColumns {
         , [Parameter()][switch]$IsCustom
     )
 
-    $LogicalName = [TableCache]::LogicalName($EntitySetName)
+    $LogicalName = [SDVApp]::Schema.LogicalName($EntitySetName)
     $cols = @(
         "MetadataId"
         "LogicalName"
