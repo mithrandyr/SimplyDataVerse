@@ -4,8 +4,10 @@ function New-DataVerseRow {
        [Parameter(Mandatory)][String]$EntitySetName
     )
     
-    $columns = Get-DataVerseColumns -EntitySetName $EntitySetName -CanUpdate |
-        Select-Object -ExpandProperty LogicalName
+    $columns = @(
+        [SDVApp]::Schema.TablePrimaryId($EntitySetName)
+        [SDVApp]::Schema.ColumnsCanUpdate($EntitySetName) | Select-Object -ExpandProperty LogicalName
+    )
     $ht = [ordered]@{PSTypeName = "DataVerse.$EntitySetName"}
     foreach($c in $columns) { $ht[$c] = $null }
 

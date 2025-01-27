@@ -4,31 +4,38 @@ function Set-DataVerseRow {
        [Parameter(Mandatory, ParameterSetName="hash")][String]$EntitySetName
        , [Parameter(Mandatory, ParameterSetName="hash", ValueFromPipeline)][hashtable]$Changes
        , [Parameter(Mandatory, ParameterSetName="object", ValueFromPipeline)][psobject]$InputObject
+       , [Parameter()][switch]$NoResult
     )
     begin {
-        $hashList = [System.Collections.Generic.List[hashtable]]::new()        
+        $hashList = [System.Collections.Generic.List[hashtable]]::new()   
+        if($EntitySetName) { $PrimaryIdCol = [SDVApp]::Schema.TablePrimaryId($EntitySetName) }
     }
     process {
-        if($PSCmdlet.ParameterSetName -eq "hash") {
-            $hashList.Add($Changes)
-        } else {
-            $esName = $InputObject.TypeNames[0].Split(".")[1]
-            if(-not $EntitySetName) { $EntitySetName = $esName }
+        if($PSCmdlet.ParameterSetName -eq "object") {
+            $esName = $InputObject.psobject.TypeNames[0].Split(".")[1]
+            if(-not $EntitySetName) {
+                $EntitySetName = $esName
+                $PrimaryIdCol = [SDVApp]::Schema.TablePrimaryId($EntitySetName)
+            }
             elseif($EntitySetName -ne $esName) { throw "Cannot use 'Set-DataVerseRow' with multiple EntitySets. "}
-            #$changes = 
-
+            $Changes = ConvertToHashTable -InputObject $InputObject
         }
-        
+        $hashList.Add($Changes)        
     }
     end {
-        $addHdrs = @{'If-None-Match'= ""}
-        if($IncludeAnnotations) { $addHdrs['Prefer'] ='odata.include-annotations="*"' }
+        $addHdrs = @{'Content-Type'= "application/json"}
+        if(-not $NoResult) { $addHdrs["return"] = "representation" }
     
-        $request = @{
-            Method = "GET"
-            EndPoint = $ep
-            AddHeaders = $addHdrs
+        foreach($body in $hashList) {
+            $request = @{
+                Method = "PATCH"
+                EndPoint = "$EntitySetName({0})" -f $body.$PrimaryIdCol
+                AddHeaders = $addHdrs
+            }
+
+            Invoke-DataVerse @request -Body ($body | ConvertTo-Json) |
+                Select-Object -ExpandProperty value
         }
-        Invoke-DataVerse @request | Select-Object -ExpandProperty value
+        
     }    
 }

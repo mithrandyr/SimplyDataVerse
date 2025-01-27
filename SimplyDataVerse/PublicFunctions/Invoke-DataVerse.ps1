@@ -1,14 +1,17 @@
 Function Invoke-DataVerse {
     [cmdletbinding()]
-    Param([ValidateSet("GET", "POST")]$Method = "GET"
-        , [parameter(Mandatory, position = 0)][string]$EndPoint
-        , [hashtable]$AddHeaders = @{})
+    Param([ValidateSet("GET", "POST", "PATCH")]$Method = "GET"
+        , [Parameter(Mandatory, position = 0)][string]$EndPoint
+        , [Parameter()][hashtable]$AddHeaders = @{}
+        , [Parameter()][string]$Body
+        )
 
     $request = @{
         Uri     = [SDVApp]::GetBaseUri() + $EndPoint
         Method  = $Method
         Headers = [SDVApp]::GetBaseHeaders() + $AddHeaders
     }
+    if($Body) { $request["Body"] = $Body }
     
     try {
         Invoke-RestMethod @request

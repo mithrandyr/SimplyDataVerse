@@ -3,9 +3,11 @@ function Get-DataVerseColumns {
     param([Parameter(Mandatory)][string]$EntitySetName
         , [Parameter()][switch]$CanUpdate
         , [Parameter()][switch]$IsCustom
+        , [Parameter()][switch]$Force
     )
 
     $LogicalName = [SDVApp]::Schema.LogicalName($EntitySetName)
+    
     $cols = @(
         "MetadataId"
         "LogicalName"

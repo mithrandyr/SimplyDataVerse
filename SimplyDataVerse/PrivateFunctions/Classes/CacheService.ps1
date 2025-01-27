@@ -17,7 +17,7 @@ Class CacheSvc {
         if ($this.IsValid($key)) { return $this.Cache[$key].Value }
         else { return $null }
     }
-    
+    [void] Expire([string]$key) { if($this.Cache.ContainsKey($key)) { $this.Cache.Remove($key) } }
     [void] Clear() { $this.Cache.Clear() }
     [string[]] Keys() { return $this.Cache.Keys }
 }
@@ -31,14 +31,14 @@ Class SchemaCache {
         $this._columns.Clear()
 
         Get-DataVerseTables -AllTables |
-        Select-Object EntitySetName, LogicalName, PrimaryIdAttribute, PrimaryNameAttribute, IsManaged |
-        ForEach-Object {
-            $this._tables.Add($_.EntitySetName, $_)
-            if (-not $_.IsManaged) {
-                $this._columns.Add($_.EntitySetName, $columns)
-                $columns = Get-DataVerseColumns -EntitySetName $_.EntitySetName
+            Select-Object EntitySetName, LogicalName, PrimaryIdAttribute, PrimaryNameAttribute, IsManaged |
+            ForEach-Object {
+                $this._tables.Add($_.EntitySetName, $_)
+                if (-not $_.IsManaged) {
+                    $columns = Get-DataVerseColumns -EntitySetName $_.EntitySetName
+                    $this._columns.Add($_.EntitySetName, $columns)
+                }
             }
-        }
     }
 
     [psobject] Table([string]$entitySetName) {

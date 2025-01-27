@@ -7,7 +7,10 @@ function Get-DataVerseRows {
     )
     $ep = $EntitySetName
     if($CanUpdate) {
-        $columns = Get-DataVerseColumns -EntitySetName -CanUpdate | Select-Object -ExpandProperty LogicalName
+        $columns = @(
+            [SDVApp]::Schema.TablePrimaryId($EntitySetName)
+            [SDVApp]::Schema.ColumnsCanUpdate($EntitySetName) | Select-Object -ExpandProperty LogicalName
+        )        
         $ep = QueryAppend $ep ('$select=' + ($columns -join ","))
     }
     $addHdrs = @{'If-None-Match'= ""}

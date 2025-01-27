@@ -1,4 +1,8 @@
-Register-ArgumentCompleter -CommandName @("Get-DataVerseRows", "Get-DataVerseColumns", "Get-DataVerseTables", "New-DataVerseRow") -ParameterName EntitySetName -ScriptBlock {
+Register-ArgumentCompleter -CommandName @("Get-DataVerseRows"
+                                            "Get-DataVerseColumns"
+                                            "Get-DataVerseTables"
+                                            "Get-DataVerseTablePrimaryId"
+                                            "New-DataVerseRow") -ParameterName EntitySetName -ScriptBlock {
     [OutputType([System.Management.Automation.CompletionResult])]
     param(
         [string] $CommandName,
@@ -8,6 +12,6 @@ Register-ArgumentCompleter -CommandName @("Get-DataVerseRows", "Get-DataVerseCol
         [System.Collections.IDictionary] $FakeBoundParameters
     )
     
-    [TableCache]::EntitySetNames() |
-        Where-Object {$_ -like "*$WordToComplete*"}
+    [SDVApp]::Schema.EntitySetNames() |
+    Where-Object { $_ -like "*$WordToComplete*" }
 }
