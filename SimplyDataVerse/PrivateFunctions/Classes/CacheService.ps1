@@ -35,7 +35,7 @@ Class SchemaCache {
             ForEach-Object {
                 $this._tables.Add($_.EntitySetName, $_)
                 if (-not $_.IsManaged) {
-                    $columns = Get-DataVerseColumns -EntitySetName $_.EntitySetName
+                    $columns = Get-DataVerseColumns -EntitySetName $_.EntitySetName -Options All
                     $this._columns.Add($_.EntitySetName, $columns)
                 }
             }
@@ -66,7 +66,7 @@ Class SchemaCache {
 
     [psobject[]] Columns([string]$entitySetName) {
         if (-not $this._columns.IsValid($entitySetName)) {
-            $columns = Get-DataVerseColumns -EntitySetName $entitySetName
+            $columns = Get-DataVerseColumns -EntitySetName $entitySetName -Options All
             $this._columns.Add($entitySetName, $columns)
             return $columns
         }
@@ -74,8 +74,11 @@ Class SchemaCache {
             return $this._columns.Get($entitySetName)
         }
     }
+    [psobject[]] ColumnsCustom([string]$entitySetName) {
+        return $this.Columns($entitySetName).Where({ $_.IsCustomAttribute -or $_.IsPrimaryId })
+    }
     [psobject[]] ColumnsCanUpdate([string]$entitySetName) {
-        return $this.Columns($entitySetName).Where({ $_.IsValidForUpdate })
+        return $this.Columns($entitySetName).Where({ $_.IsValidForUpdate -or $_.IsPrimaryId })
     }
     
 }

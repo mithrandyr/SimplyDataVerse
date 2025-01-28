@@ -1,9 +1,11 @@
+<#
+.DESCRIPTION
+    By default, only returns custom rows & primaryId.
+#>
 function Get-DataVerseColumns {
     [cmdletbinding()]
     param([Parameter(Mandatory)][string]$EntitySetName
-        , [Parameter()][switch]$CanUpdate
-        , [Parameter()][switch]$IsCustom
-        , [Parameter()][switch]$Force
+        , [Parameter()][ValidateSet("Custom","Updateable","All")][string]$Options = "Custom"
     )
 
     $LogicalName = [SDVApp]::Schema.LogicalName($EntitySetName)
@@ -23,8 +25,11 @@ function Get-DataVerseColumns {
     $ep = "EntityDefinitions(LogicalName='$LogicalName')/Attributes"
     $ep += '?$select=' + ($cols -join ",")
     $ep += '&$filter=IsValidODataAttribute eq true'
-    if($CanUpdate) { $ep += " and IsValidForUpdate eq true" }
-    if($IsCustom) { $ep += " and IsCustomAttribute eq true" }
+    Switch($Options) {
+        "Custom" { $ep += " and (IsPrimaryId eq true or IsCustomAttribute eq true)" }
+        "Updateable" { $ep += " and (IsPrimaryId eq true or IsValidForUpdate eq true)" }
+        "All" {}
+    }
 
     $request = @{
         Method = "GET"

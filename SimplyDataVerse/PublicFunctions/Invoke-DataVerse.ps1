@@ -4,6 +4,7 @@ Function Invoke-DataVerse {
         , [Parameter(Mandatory, position = 0)][string]$EndPoint
         , [Parameter()][hashtable]$AddHeaders = @{}
         , [Parameter()][string]$Body
+        , [Parameter()][switch]$ReturnHeaders
         )
 
     $request = @{
@@ -14,14 +15,22 @@ Function Invoke-DataVerse {
     if($Body) { $request["Body"] = $Body }
     
     try {
-        Invoke-RestMethod @request
+        if($ReturnHeaders) {
+            Invoke-WebRequest -UseBasicParsing @request | Select-Object -ExpandProperty Headers            
+        } else {
+            Invoke-RestMethod @request
+        }
     }
     catch {
         $exception = $_.Exception
         if($exception.GetType().Name -in @("WebException", "HttpResponseException")){
             if($exception.response.statuscode -eq 'TooManyRequests') {
                 if (-not $request.ContainsKey('MaximumRetryCount')) { $request.Add('MaximumRetryCount', 3) }
-                Invoke-RestMethod @request
+                if($ReturnHeaders) {
+                    Invoke-WebRequest -UseBasicParsing @request | Select-Object -ExpandProperty Headers            
+                } else {
+                    Invoke-RestMethod @request
+                }
             } else {
                 throw [SimplyDataVerseException]::Create($_, $EndPoint)
             }

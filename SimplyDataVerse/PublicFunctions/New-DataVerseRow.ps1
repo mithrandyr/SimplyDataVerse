@@ -2,13 +2,15 @@ function New-DataVerseRow {
     [cmdletbinding()]
     param (
        [Parameter(Mandatory)][String]$EntitySetName
+       , [Parameter()][switch]$AllUpdateable
     )
+    if($AllUpdateable) {
+        $columns = [SDVApp]::Schema.ColumnsCanUpdate($EntitySetName) | Select-Object -ExpandProperty LogicalName
+    } else {
+        $columns = [SDVApp]::Schema.ColumnsCustom($EntitySetName) | Select-Object -ExpandProperty LogicalName
+    }
     
-    $columns = @(
-        [SDVApp]::Schema.TablePrimaryId($EntitySetName)
-        [SDVApp]::Schema.ColumnsCanUpdate($EntitySetName) | Select-Object -ExpandProperty LogicalName
-    )
-    $ht = [ordered]@{PSTypeName = "DataVerse.$EntitySetName"}
+    $ht = [ordered]@{PSTypeName = "SimplyDataVerse.$EntitySetName"}
     foreach($c in $columns) { $ht[$c] = $null }
 
     return [PSCustomObject]$ht    

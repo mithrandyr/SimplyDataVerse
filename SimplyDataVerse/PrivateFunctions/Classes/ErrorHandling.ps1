@@ -5,7 +5,7 @@ class SimplyDataVerseException:Exception {
     
     hidden SimplyDataVerseException([string]$message, [exception]$ex, [string]$ep):base($message, $ex) {
         
-        $this.DataVerseUri = $Script:baseURI
+        $this.DataVerseUri = [SDVApp]::GetBaseUri()
         $this.DataVerseEndPoint = $ep
         $this.StatusCode = $ex.Response.StatusCode
     }
@@ -21,7 +21,11 @@ class SimplyDataVerseException:Exception {
                 ConvertFrom-Json |
                 Select-Object -ExpandProperty error |
                 Select-Object -ExpandProperty message
+            if($msg -like "Error identified in Payload provided by the user for Entity*") {
+                $msg = "[{0}] {1} BECAUSE [{2}] {3}" -f (((($msg -split "---->  InnerException : ")[1]) -split "`n")[0] -split " ---> " -split ": ")
+            }
         }
+
         return [SimplyDataVerseException]::new($msg, $er.Exception, $ep)
     }
 }
