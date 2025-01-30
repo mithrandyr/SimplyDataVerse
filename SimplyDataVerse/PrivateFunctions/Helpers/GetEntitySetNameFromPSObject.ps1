@@ -1,5 +1,7 @@
 Function GetEntitySetNameFromPSObject {
-    Param([Parameter(Mandatory, ValueFromPipeline)][psobject]$InputObject)
+    Param(
+        [Parameter(Mandatory, ValueFromPipeline)][psobject]$InputObject
+    )
     
     $InputObject.psobject.TypeNames |
         Where-Object { $_ -like "SimplyDataVerse.*" } |

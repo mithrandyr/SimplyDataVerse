@@ -13,8 +13,9 @@ function Set-DataVerseRow {
     process {
         if($PSCmdlet.ParameterSetName -eq "object") {
             $esName = GetEntitySetNameFromPSObject $InputObject
-            if(-not $esName) { throw "Pipelined Objects must be have EntitySet through TypeName, use 'Get-DataVerseRow' or 'New-DataVerseRow'." }
-            elseif(-not $EntitySetName) {
+            if(-not $esName) {
+                throw "Pipelined Objects must be have EntitySet through TypeName, use 'Get-DataVerseRow' or 'New-DataVerseRow'."
+            } elseif(-not $EntitySetName) {
                 $EntitySetName = $esName
                 $PrimaryIdCol = [SDVApp]::Schema.TablePrimaryId($EntitySetName)
             }

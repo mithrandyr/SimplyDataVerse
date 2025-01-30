@@ -45,7 +45,7 @@ Class SchemaCache {
         if (-not $this._tables.IsValid($entitySetName)) {
             $tbl = Get-DataVerseTables -EntitySetName $entitySetName
             $this._tables.Add($entitySetName, $tbl)
-            return $tbl
+            return $tbl            
         }
         else {
             return $this._tables.Get($entitySetName)
