@@ -37,7 +37,7 @@ function Set-DataVerseRow {
                 $request.Method = "PATCH"
                 $request.EndPoint += "({0})" -f $body.$PrimaryIdCol
                 $request.Body = $body | ConvertTo-Json
-                Invoke-DataVerse @request
+                Invoke-DataVerse @request | Out-Null
 
             } else { #create row
                 $body.Remove($PrimaryIdCol)

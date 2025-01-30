@@ -1,6 +1,6 @@
 param([switch]$load)
 if($load) {
-    Write-Host "Staring nested session..."
+    Write-Host "Starting nested session..."
     powershell -noexit ". .\testing.ps1; refresh"
     Write-Host "Finished nested session!"
 }

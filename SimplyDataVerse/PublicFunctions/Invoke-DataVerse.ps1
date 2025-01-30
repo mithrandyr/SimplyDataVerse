@@ -1,6 +1,6 @@
 Function Invoke-DataVerse {
     [cmdletbinding()]
-    Param([ValidateSet("GET", "POST", "PATCH")]$Method = "GET"
+    Param([ValidateSet("GET", "POST", "PATCH", "DELETE")]$Method = "GET"
         , [Parameter(Mandatory, position = 0)][string]$EndPoint
         , [Parameter()][hashtable]$AddHeaders = @{}
         , [Parameter()][string]$Body

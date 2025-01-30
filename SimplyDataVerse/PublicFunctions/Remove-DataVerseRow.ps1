@@ -21,6 +21,16 @@ Function Remove-DataVerseRow {
                 return
             }
         }
-        Write-Host "[EntitySetName]$EntitySetName - [GUID]$guid"
+        
+        $request = @{
+            Method = "DELETE"
+            Endpoint = "$EntitySetName($guid)"
+        }
+        try {
+            Invoke-DataVerse @request | Out-Null
+            Write-Verbose "Removed '$guid' on '$EntitySetName'"
+        } catch {
+            $PSCmdlet.WriteError($_)
+        }
     }
 }
