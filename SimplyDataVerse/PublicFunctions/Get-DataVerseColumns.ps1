@@ -13,6 +13,7 @@ function Get-DataVerseColumns {
     $cols = @(
         "MetadataId"
         "LogicalName"
+        "SchemaName"
         "ColumnNumber"
         "AttributeType"
         "IsCustomAttribute"

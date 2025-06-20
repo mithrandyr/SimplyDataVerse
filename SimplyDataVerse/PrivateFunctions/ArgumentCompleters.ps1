@@ -34,3 +34,22 @@ Register-ArgumentCompleter -CommandName @("Get-DataVerseRows") -ParameterName Co
             Where-Object { $_ -like "*$WordToComplete*" }
     }
 }
+
+Register-ArgumentCompleter -CommandName @("Get-DataVerseRows") -ParameterName ExpandColumns -ScriptBlock {
+    [OutputType([System.Management.Automation.CompletionResult])]
+    param(
+        [string] $CommandName,
+        [string] $ParameterName,
+        [string] $WordToComplete,
+        [System.Management.Automation.Language.CommandAst] $CommandAst,
+        [System.Collections.IDictionary] $FakeBoundParameters
+    )
+    
+    $entitySetName = $FakeBoundParameters["EntitySetName"]
+    if($entitySetName) {
+        [SDVApp]::Schema.ColumnsCustom($entitySetName) |
+            Where-Object AttributeType -eq "Lookup" |
+            Select-Object -ExpandProperty SchemaName |
+            Where-Object { $_ -like "*$WordToComplete*" }
+    }
+}

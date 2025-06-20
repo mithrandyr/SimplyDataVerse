@@ -6,19 +6,38 @@ function Get-DataVerseRows {
        , [Parameter()][string]$Where
        , [Parameter()][int]$Limit = 0
        , [Parameter()][ValidateSet("Custom","Updateable","All")][string]$Options = "Custom"
+       , [Parameter()][string[]]$ExpandColumns
        , [Parameter()][switch]$IncludeAnnotations
     )
     $ep = $EntitySetName
     if(-not $Columns) {
         switch($Options) {
-            "Custom" { $Columns = [SDVApp]::Schema.ColumnsCustom($EntitySetName) | Select-Object -ExpandProperty LogicalName }
-            "Updateable" { $Columns = [SDVApp]::Schema.ColumnsCanUpdate($EntitySetName) | Select-Object -ExpandProperty LogicalName }
-            "All" { $Columns = [SDVApp]::Schema.Columns($EntitySetName) | Select-Object -ExpandProperty LogicalName }
+            "Custom" { $columnList = [SDVApp]::Schema.ColumnsCustom($EntitySetName) }
+            "Updateable" { $columnList = [SDVApp]::Schema.ColumnsCanUpdate($EntitySetName) }
+            "All" { $columnList = [SDVApp]::Schema.Columns($EntitySetName) }
+            
         }
+    } else {
+        $columnList = [SDVApp]::Schema.Columns($EntitySetName).where({$_.LogicalName -in $Columns})
     }
-    $ep = QueryAppend $ep ('$select=' + ($Columns -join ","))
+
+    $columnNames = $columnList |
+        ForEach-Object {
+            if($_.AttributeType -eq "Lookup") {
+                if($_.SchemaName -notin $ExpandColumns) {
+                "_{0}_value" -f $_.LogicalName
+                } else {
+                    $_.SchemaName
+                }
+            } else {
+                $_.LogicalName
+            }
+        }
+
+    $ep = QueryAppend $ep ('$select=' + ($columnNames -join ","))
     if($Limit -gt 0) {$ep = QueryAppend $ep "`$top=$limit" }
     if($Where) { $ep = QueryAppend $ep "`$filter=$Where" }
+    if($ExpandColumns) { $ep = QueryAppend $ep ('$expand='+ ($ExpandColumns -join ",")) }
 
     $addHdrs = @{'If-None-Match'= ""}
     if($IncludeAnnotations) { $addHdrs['Prefer'] ='odata.include-annotations="*"' }
@@ -36,12 +55,11 @@ function Get-DataVerseRows {
         handled recursively.
 
     #>
-
     Invoke-DataVerse @request |
         Select-Object -ExpandProperty value |
         ForEach-Object {
             $ht = [ordered]@{ PSTypeName = "SimplyDataVerse.$EntitySetName" }
-            foreach($c in $columns) { $ht[$c] = $_.$c }
+            foreach($c in $columnNames) { $ht[$c] = $_.$c }
             [PSCustomObject]$ht
         }
 }

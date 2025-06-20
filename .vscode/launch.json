@@ -7,7 +7,8 @@
         {
             "name": "PowerShell Attach to Host Process",
             "type": "PowerShell",
-            "request": "attach"
+            "request": "attach",
+            "runspaceId": 1
         }
     ]
 }
