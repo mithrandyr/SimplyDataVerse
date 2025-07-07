@@ -10,17 +10,17 @@ Function Get-DataVerseMetaData {
     }
     
     try {
-        Invoke-RestMethod @request
+        $result = Invoke-RestMethod @request
+        $mdInfo = @{}
+        foreach($x in $result.Edmx.DataServices.Schema.EntityType) {
+            $mdInfo[$x.Name] = $x
+        }
+        $mdInfo
     }
     catch {
         $exception = $_.Exception
         if($exception.GetType().Name -in @("WebException", "HttpResponseException")){
-            if($exception.response.statuscode -eq 'TooManyRequests') {
-                if (-not $request.ContainsKey('MaximumRetryCount')) { $request.Add('MaximumRetryCount', 3) }
-                Invoke-RestMethod @request
-            } else {
-                throw [SimplyDataVerseException]::Create($_, $EndPoint)
-            }
+            throw [SimplyDataVerseException]::Create($_, $EndPoint)
         } else {
             throw $_
         }        
