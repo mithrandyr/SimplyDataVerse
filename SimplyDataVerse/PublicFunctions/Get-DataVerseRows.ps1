@@ -48,6 +48,8 @@ function Get-DataVerseRows {
         handled recursively.
 
     #>
+
+    #Replace this with piping results to 'CreateRowFromResponse'...
     Invoke-DataVerse @request |
         Select-Object -ExpandProperty value |
         ForEach-Object {
