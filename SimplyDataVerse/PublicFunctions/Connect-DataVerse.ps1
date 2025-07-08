@@ -17,6 +17,7 @@ Function Connect-DataVerse {
     
     Write-Verbose "Initializing Schema Cache..."
     [SDVApp]::InitializeSchema()
+    [SDVApp]::RefreshSchema()
 }
 
 Register-ArgumentCompleter -CommandName "Connect-DataVerse" -ParameterName Name -ScriptBlock {

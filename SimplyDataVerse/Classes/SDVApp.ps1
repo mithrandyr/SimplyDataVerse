@@ -3,91 +3,120 @@ Class SDVApp {
     static [SchemaCache] $Schema = [SchemaCache]::new()
     hidden static [hashtable] $Tables = @{}
     hidden static [hashtable] $TableMap = @{}
-    hidden static [hashtable] $TableColumns = @{}
     
     static [void] InitializeSchema() { [SDVApp]::Schema.Initialize() }
     
     #region Schema (tables/ columns)
     static [void] RefreshSchema() {
+        $tableColumnsToLoad = [SDVApp]::Tables.Values.where({$_.HasAttributeDetails}).EntitySetName
+        $metaDataHash = [SDVApp]::RefreshMetaData()
         [SDVApp]::Tables.Clear()
         [SDVApp]::TableMap.Clear()
-        [SDVApp]::TableColumns.Clear()
-
-        $metaDataHash = [SDVApp]::RefreshMetaData()
         
         foreach($tbl in (Get-DataVerseTables -AllTables)) {
-            $logicalName, $entityName = $tbl.LogicalName, $tbl.EntitySetName
-            [SDVApp]::TableMap[$logicalName] = $entityName
-            [SDVApp]::Tables[$entityName] = @{
+            $logicalName, $entitySetName = $tbl.LogicalName, $tbl.EntitySetName
+            [SDVApp]::TableMap[$logicalName] = $entitySetName
+            [SDVApp]::Tables[$entitySetName] = @{
                 IsManaged = $tbl.IsManaged
+                EntitySetName = $entitySetName
                 LogicalName = $logicalName
                 PrimaryNameAttribute = $tbl.PrimaryNameAttribute
                 PrimaryIdAttribute = $tbl.PrimaryIdAttribute
-                Columns = @{}
-                Navigation = @{}
+                Attributes = @{}
+                HasAttributeDetails = $false
             }
             # Columns
-            foreach($column in $metaDataHash[$logicalName].Property.where({$_.name -notlike "_*"})) {
-                [SDVApp]::Tables[$entityName].Columns[$column.Name] = @{
-                    LogicalName = $column.Name
-                    Type = $column.Type.Split(".")[1]
+            foreach($column in $metaDataHash[$logicalName].Property) {
+                if($column.name -notlike "_*") {
+                    [SDVApp]::Tables[$entitySetName].Attributes[$column.Name] = [PSCustomObject]@{
+                        LogicalName = $column.Name
+                        DataType = $column.Type.Split(".")[1]
+                        AttributeType = "Scalar"
+                        SchemaName = $null
+                        IsValidForCreate = $null
+                        IsValidForUpdate = $null
+                    }
                 }
             }
             # Navigation
-            foreach($column in $metaDataHash[$logicalName].NavigationProperty.where({$_.type -notlike "Collection(*)"})) {
-                [SDVApp]::Tables[$entityName].Navigation[$column.Name] = @{
-                    LogicalName = $column.Name
-                    Type = $column.Type.Split(".")[1]
+            foreach($column in $metaDataHash[$logicalName].NavigationProperty) {
+                if($column.type -notlike "Collection(*)") {
+                    [SDVApp]::Tables[$entitySetName].Attributes[$column.Name] = [PSCustomObject]@{
+                        LogicalName = $column.Name
+                        DataType = $column.Type.Split(".")[1]
+                        AttributeType = "Navigation"
+                        SchemaName = $null
+                        IsValidForCreate = $null
+                        IsValidForUpdate = $null
+                    }
                 }
             }
             
             #details for userDefinedTables (non-managed)
-            if-not ($tbl.IsManaged) { 
-                [SDVApp]::LoadColumnDetails($logicalName)
+            if(-not $tbl.IsManaged) { 
+                [SDVApp]::LoadColumnDetails($entitySetName)
             }
         }
+        
+        #refresh any tables already loaded
+        $tableColumnsToLoad.ForEach({[SDVApp]::LoadColumnDetails($_)})
 
     }
 
-    static [string] GetLogicalFromEntitySet($entityName) {
-        return [SDVApp]::Tables($entityName).LogicalName
+    static [string] GetTableIdAttribute($entitySetName) {
+        return [SDVApp]::Tables[$entitySetName].PrimaryIdAttribute
+    }
+
+    static [string] GetLogicalFromEntitySet($entitySetName) {
+        return [SDVApp]::Tables[$entitySetName].LogicalName
     }
 
     static [string] GetEntitySetFromLogical($logicalName) {
         return [SDVApp]::TableMap($logicalName)
     }
     
-    static [string[]] ColumnsForCreate([string]$logicalName) {
-        if(-not [SDVApp]::TableColumns.ContainsKey($logicalName)) {
-            [SDVApp]::LoadColumnDetails($logicalName)
+    static [psobject[]] ColumnsForCreate([string]$entitySetName) {
+        $table = [SDVApp]::Tables[$entitySetName]
+        if(-not $table.HasAttributeDetails) {
+            [SDVApp]::LoadColumnDetails($entitySetName)
         }
-        return [SDVApp]::TableColumns[$logicalName].where({$_.IsValidForCreate})
+        return $table.Attributes.Values.where({$_.IsValidForCreate})
     }
-    static [string[]] ColumnsForUpdate([string]$logicalName) {
-        if(-not [SDVApp]::TableColumns.ContainsKey($logicalName)) {
-            [SDVApp]::LoadColumnDetails($logicalName)
+    static [psobject[]] ColumnsForUpdate([string]$entitySetName) {
+        $table = [SDVApp]::Tables[$entitySetName]
+        if(-not $table.HasAttributeDetails) {
+            [SDVApp]::LoadColumnDetails($entitySetName)
         }
-        return [SDVApp]::TableColumns[$logicalName].where({$_.IsValidForUpdate})
+        return $table.Attributes.Values.where({$_.IsValidForUpdate})
     }
 
-    hidden static [void] LoadColumnDetails([string]$logicalName) {
-        $cols = @("LogicalName", "SchemaName", "ColumnNumber", "AttributeType", "IsCustomAttribute", "IsValidForCreate", "IsValidForUpdate")
-        $ep = "EntityDefinitions(LogicalName='$LogicalName')/Attributes"
-        $ep += '?$select=' + ($cols -join ",")
-        $ep += '&$filter=IsValidODataAttribute eq true'
-        
-        $request = @{
-            Method = "GET"
-            EndPoint = $ep
-            AddHeaders = @{
-                'If-None-Match' = ""
-                'Consistency' = 'Strong'
+    hidden static [void] LoadColumnDetails([string]$entitySetName) {
+        if([SDVApp]::Tables[$entitySetName].HasAttributeDetails) {
+            return #already loaded the data...
+        } else {
+            $logicalName = [SDVApp]::GetLogicalFromEntitySet($entitySetName)
+            $cols = @("LogicalName", "SchemaName", "ColumnNumber", "AttributeType", "IsCustomAttribute", "IsValidForCreate", "IsValidForUpdate")
+            $ep = "EntityDefinitions(LogicalName='$LogicalName')/Attributes"
+            $ep += '?$select=' + ($cols -join ",")
+            $ep += '&$filter=IsValidODataAttribute eq true'
+            
+            $request = @{
+                Method = "GET"
+                EndPoint = $ep
+                AddHeaders = @{
+                    'If-None-Match' = ""
+                    'Consistency' = 'Strong'
+                }
             }
+
+            Invoke-DataVerse @request | 
+                Select-Object -ExpandProperty value |
+                ForEach-Object {
+                    [SDVApp]::Tables[$entitySetName].Attributes[$_.LogicalName].SchemaName = $_.SchemaName
+                    [SDVApp]::Tables[$entitySetName].Attributes[$_.LogicalName].IsValidForCreate = $_.IsValidForCreate
+                    [SDVApp]::Tables[$entitySetName].Attributes[$_.LogicalName].IsValidForUpdate = $_.IsValidForUpdate
+                }
         }
-        
-        [SDVApp]::Tables[$LogicalName] = Invoke-DataVerse @request | 
-            Select-Object -ExpandProperty value |
-            Select-Object $cols
     }
 
     hidden static [hashtable] RefreshMetaData() {

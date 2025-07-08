@@ -5,42 +5,35 @@ function Get-DataVerseRows {
        , [Parameter()][string[]]$Columns
        , [Parameter()][string]$Where
        , [Parameter()][int]$Limit = 0
-       , [Parameter()][ValidateSet("Custom","Updateable","All")][string]$Options = "Custom"
-       , [Parameter()][string[]]$ExpandColumns
-       , [Parameter()][switch]$IncludeAnnotations
+       , [Parameter()][switch]$NoExpand
     )
-    $ep = $EntitySetName
-    if(-not $Columns) {
-        switch($Options) {
-            "Custom" { $columnList = [SDVApp]::Schema.ColumnsCustom($EntitySetName) }
-            "Updateable" { $columnList = [SDVApp]::Schema.ColumnsCanUpdate($EntitySetName) }
-            "All" { $columnList = [SDVApp]::Schema.Columns($EntitySetName) }
-            
+    
+    $columnList = @{}
+    $expandColumns = @()
+    foreach($attribute in [SDVApp]::Tables[$EntitySetName].Attributes.Values) {
+        if($attribute.AttributeType -eq "Scalar") {
+            $columnList[$attribute.LogicalName] = $attribute.LogicalName
+        } elseif($NoExpand) {
+            $columnList[$attribute.LogicalName] = ("_{0}_value" -f $attribute.LogicalName).ToLower()
+        } else {
+            $expandColumns += $attribute.LogicalName
+            $columnList[$attribute.LogicalName] = $attribute.LogicalName
         }
-    } else {
-        $columnList = [SDVApp]::Schema.Columns($EntitySetName).where({$_.LogicalName -in $Columns})
     }
 
-    $columnNames = $columnList |
-        ForEach-Object {
-            if($_.AttributeType -eq "Lookup") {
-                if($_.SchemaName -notin $ExpandColumns) {
-                "_{0}_value" -f $_.LogicalName
-                } else {
-                    $_.SchemaName
-                }
-            } else {
-                $_.LogicalName
-            }
-        }
+    if($Columns) {
+       $keysToRemove = $columnList.Keys.where({$_ -notin $Columns})
+       foreach($key in $keysToRemove) {
+            $columnList.Remove
+       }
+    }
 
-    $ep = QueryAppend $ep ('$select=' + ($columnNames -join ","))
-    if($Limit -gt 0) {$ep = QueryAppend $ep "`$top=$limit" }
+    $ep = QueryAppend $EntitySetName ('$select=' + ($columnList.Values -join ","))
+    if(-not $NoExpand){ $ep = QueryAppend $ep ('$expand='+ ($expandColumns -join ",")) }
+    if($Limit -gt 0) { $ep = QueryAppend $ep "`$top=$limit" }
     if($Where) { $ep = QueryAppend $ep "`$filter=$Where" }
-    if($ExpandColumns) { $ep = QueryAppend $ep ('$expand='+ ($ExpandColumns -join ",")) }
 
     $addHdrs = @{'If-None-Match'= ""}
-    if($IncludeAnnotations) { $addHdrs['Prefer'] ='odata.include-annotations="*"' }
 
     $request = @{
         Method = "GET"
@@ -59,7 +52,10 @@ function Get-DataVerseRows {
         Select-Object -ExpandProperty value |
         ForEach-Object {
             $ht = [ordered]@{ PSTypeName = "SimplyDataVerse.$EntitySetName" }
-            foreach($c in $columnNames) { $ht[$c] = $_.$c }
+            foreach($key in $columnList.Keys) {
+                $colName = $columnList[$key]
+                $ht[$key] = $_.$colName
+            }
             [PSCustomObject]$ht
         }
 }
