@@ -29,9 +29,11 @@ Register-ArgumentCompleter -CommandName @("Get-DataVerseRows") -ParameterName Co
     
     $entitySetName = $FakeBoundParameters["EntitySetName"]
     if($entitySetName) {
-        [SDVApp]::Schema.ColumnsCustom($entitySetName) |
-            Select-Object -ExpandProperty LogicalName |
-            Where-Object { $_ -like "*$WordToComplete*" }
+        [SDVApp]::Tables[$entitySetName] |
+            ForEach-Object Attributes |
+            ForEach-Object Keys |
+            Where-Object { $_ -like "*$WordToComplete*" } |
+            Sort-Object
     }
 }
 

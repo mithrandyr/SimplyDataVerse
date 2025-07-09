@@ -5,12 +5,17 @@ Function CreateRowFromResponse {
     )
     begin {
         [SDVApp]::LoadColumnDetails($EntitySetName)
-        $Attributes = [SDVApp]::Tables[$entitySetName].Attributes.Values        
+        $attributes = [SDVApp]::Tables[$entitySetName].Attributes
+        $rawAttributes = @{}
+        $attributes.Values.where({$_.RawName}).foreach({$rawAttributes[$_.RawName] = $_})
     }
     process {
-        $filterAttributesByObject = $Attributes.where({$_.LogicalName -in $Object.psobject.Properties.Name})
         $ht = [ordered]@{ PSTypeName = "SimplyDataVerse.$EntitySetName" }
-        foreach($attribute in $filterAttributesByObject) {
+        foreach($property in $Object.psobject.Properties.Name) {
+            if($attributes.ContainsKey($property)) { $attribute = $attributes[$property] }
+            elseif ($rawAttributes.ContainsKey($property)) { $attribute = $rawAttributes[$property] }
+            else { continue }
+
             $name = $attribute.LogicalName
             $display = $attribute.SchemaName
             if($attribute.AttributeType -eq "Navigation") {
@@ -28,6 +33,7 @@ Function CreateRowFromResponse {
                 $ht.$display = $Object.$name
             }
         }
+        
         [PSCustomObject]$ht
     }
 
