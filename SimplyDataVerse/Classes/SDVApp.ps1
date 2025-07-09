@@ -29,38 +29,39 @@ Class SDVApp {
             foreach($column in $metaDataHash[$logicalName].Property) {
                 if($column.name -notlike "_*") {
                     [SDVApp]::Tables[$entitySetName].Attributes[$column.Name] = [PSCustomObject]@{
+                        AttributeType = "Scalar"
                         LogicalName = $column.Name
                         DataType = $column.Type.Split(".")[1]
-                        AttributeType = "Scalar"
+                        DataVerseType = $null
                         SchemaName = $null
                         IsValidForCreate = $null
                         IsValidForUpdate = $null
+                        IsCustom = $null
                     }
                 }
             }
             # Navigation
             foreach($column in $metaDataHash[$logicalName].NavigationProperty) {
-                if($column.type -notlike "Collection(*)") {
+                if($column.Name -in @("ownerid", "activitypointer")) {}
+                elseif($column.Type -like "Collection(*)") {}
+                else {
                     [SDVApp]::Tables[$entitySetName].Attributes[$column.Name] = [PSCustomObject]@{
+                        AttributeType = "Navigation"
                         LogicalName = $column.Name
                         DataType = $column.Type.Split(".")[1]
-                        AttributeType = "Navigation"
+                        DataVerseType = $null
                         SchemaName = $null
                         IsValidForCreate = $null
                         IsValidForUpdate = $null
+                        IsCustom = $null
+                        RawName = ("_{0}_value" -f $column.Name).ToLower()
                     }
                 }
-            }
-            
-            #details for userDefinedTables (non-managed)
-            if(-not $tbl.IsManaged) { 
-                [SDVApp]::LoadColumnDetails($entitySetName)
             }
         }
         
         #refresh any tables already loaded
         $tableColumnsToLoad.ForEach({[SDVApp]::LoadColumnDetails($_)})
-
     }
 
     static [string] GetTableIdAttribute($entitySetName) {
@@ -72,22 +73,22 @@ Class SDVApp {
     }
 
     static [string] GetEntitySetFromLogical($logicalName) {
-        return [SDVApp]::TableMap($logicalName)
+        return [SDVApp]::TableMap[$logicalName]
     }
     
     static [psobject[]] ColumnsForCreate([string]$entitySetName) {
-        $table = [SDVApp]::Tables[$entitySetName]
-        if(-not $table.HasAttributeDetails) {
-            [SDVApp]::LoadColumnDetails($entitySetName)
-        }
-        return $table.Attributes.Values.where({$_.IsValidForCreate})
+        [SDVApp]::LoadColumnDetails($entitySetName)
+        return [SDVApp]::Tables[$entitySetName].Attributes.Values.where({$_.IsValidForCreate})
     }
     static [psobject[]] ColumnsForUpdate([string]$entitySetName) {
-        $table = [SDVApp]::Tables[$entitySetName]
-        if(-not $table.HasAttributeDetails) {
-            [SDVApp]::LoadColumnDetails($entitySetName)
-        }
-        return $table.Attributes.Values.where({$_.IsValidForUpdate})
+        [SDVApp]::LoadColumnDetails($entitySetName)
+        return [SDVApp]::Tables[$entitySetName].Attributes.Values.where({$_.IsValidForUpdate})
+    }
+    static [string[]] ColumnsForSelectCustom([string]$entitySetName) {
+        [SDVApp]::LoadColumnDetails($entitySetName)
+        $result = @([SDVApp]::GetTableIdAttribute($entitySetName))
+        $result += [SDVApp]::Tables[$entitySetName].Attributes.Values.where({$_.IsCustom}).LogicalName
+        return $result 
     }
 
     hidden static [void] LoadColumnDetails([string]$entitySetName) {
@@ -109,13 +110,27 @@ Class SDVApp {
                 }
             }
 
-            Invoke-DataVerse @request | 
-                Select-Object -ExpandProperty value |
+            $results = Invoke-DataVerse @request | 
+                Select-Object -ExpandProperty value
+            $results |
                 ForEach-Object {
-                    [SDVApp]::Tables[$entitySetName].Attributes[$_.LogicalName].SchemaName = $_.SchemaName
-                    [SDVApp]::Tables[$entitySetName].Attributes[$_.LogicalName].IsValidForCreate = $_.IsValidForCreate
-                    [SDVApp]::Tables[$entitySetName].Attributes[$_.LogicalName].IsValidForUpdate = $_.IsValidForUpdate
+                    $attribute = [SDVApp]::Tables[$entitySetName].Attributes[$_.LogicalName]
+                    if($attribute) {
+                        $attribute.SchemaName = $_.SchemaName
+                        $attribute.DataVerseType = $_.AttributeType
+                        $attribute.IsValidForCreate = $_.IsValidForCreate
+                        $attribute.IsValidForUpdate = $_.IsValidForUpdate
+                        $attribute.IsCustom = $_.IsCustomAttribute
+                    }
                 }
+            $keysToRemove = [SDVApp]::Tables[$entitySetName].Attributes.Values |
+                Where-Object SchemaName -eq $null |
+                Select-Object -ExpandProperty LogicalName
+
+            foreach ($key in $keysToRemove) {
+                [SDVApp]::Tables[$entitySetName].Attributes.Remove($key)
+            }
+            [SDVApp]::Tables[$entitySetName].HasAttributeDetails = $true
         }
     }
 

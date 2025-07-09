@@ -1,12 +1,15 @@
 function Get-DataVerseRows {
-    [cmdletbinding()]
+    [cmdletbinding(DefaultParameterSetName="custom")]
     param (
-       [Parameter(Mandatory)][String]$EntitySetName
-       , [Parameter()][string[]]$Columns
+       [Parameter(Mandatory, Position=0)][String]$EntitySetName
+       , [Parameter(ParameterSetName="specific", Mandatory)][string[]]$Columns
+       , [Parameter(ParameterSetName="all", Mandatory)][switch]$AllColumns
+       #, [Parameter(ParameterSetName="custom")][switch]$Custom
        , [Parameter()][string]$Where
        , [Parameter()][int]$Limit = 0
        , [Parameter()][switch]$NoExpand
     )
+    [SDVApp]::LoadColumnDetails($EntitySetName)
     
     $columnList = @{}
     $expandColumns = @()
@@ -14,18 +17,18 @@ function Get-DataVerseRows {
         if($attribute.AttributeType -eq "Scalar") {
             $columnList[$attribute.LogicalName] = $attribute.LogicalName
         } elseif($NoExpand) {
-            $columnList[$attribute.LogicalName] = ("_{0}_value" -f $attribute.LogicalName).ToLower()
+            $columnList[$attribute.LogicalName] = $attribute.RawName
         } else {
             $expandColumns += $attribute.LogicalName
             $columnList[$attribute.LogicalName] = $attribute.LogicalName
         }
     }
 
+    if($PSCmdlet.ParameterSetName -eq "custom") { $Columns = [SDVApp]::ColumnsForSelectCustom($EntitySetName) }
     if($Columns) {
        $keysToRemove = $columnList.Keys.where({$_ -notin $Columns})
-       foreach($key in $keysToRemove) {
-            $columnList.Remove
-       }
+       $keysToRemove.foreach({$columnList.Remove($_)})
+       $expandColumns = $expandColumns.where({$_ -notin $keysToRemove})
     }
 
     $ep = QueryAppend $EntitySetName ('$select=' + ($columnList.Values -join ","))
@@ -40,24 +43,8 @@ function Get-DataVerseRows {
         EndPoint = $ep
         AddHeaders = $addHdrs
     }
-    <#this needs to handle lookup columns, using the $expand option.
-        on list of columns, for every lookup column, append _value (this will retrieve the guid)
-        if the option -Expand is used, then expand the columns using $expand uri option
 
-        probably need to create a function to generate a psobject with the type name, then this can be
-        handled recursively.
-
-    #>
-
-    #Replace this with piping results to 'CreateRowFromResponse'...
     Invoke-DataVerse @request |
         Select-Object -ExpandProperty value |
-        ForEach-Object {
-            $ht = [ordered]@{ PSTypeName = "SimplyDataVerse.$EntitySetName" }
-            foreach($key in $columnList.Keys) {
-                $colName = $columnList[$key]
-                $ht[$key] = $_.$colName
-            }
-            [PSCustomObject]$ht
-        }
+        CreateRowFromResponse -EntitySetName $EntitySetName
 }

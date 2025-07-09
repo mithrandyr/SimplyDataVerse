@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "PWSH: Interactive",
+            "type": "PowerShell",
+            "request": "launch",
+            "sessionName": "Powershell (x64)",
+            "createTemporaryIntegratedConsole": true          
+        },
+        {
             "name": "PowerShell Attach to Host Process",
             "type": "PowerShell",
             "request": "attach",
