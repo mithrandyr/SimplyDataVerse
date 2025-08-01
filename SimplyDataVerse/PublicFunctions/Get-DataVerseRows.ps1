@@ -4,7 +4,6 @@ function Get-DataVerseRows {
        [Parameter(Mandatory, Position=0)][String]$EntitySetName
        , [Parameter(ParameterSetName="specific", Mandatory)][string[]]$Columns
        , [Parameter(ParameterSetName="all", Mandatory)][switch]$AllColumns
-       #, [Parameter(ParameterSetName="custom")][switch]$Custom
        , [Parameter()][string]$Where
        , [Parameter()][int]$Limit = 0
        , [Parameter()][switch]$NoExpand

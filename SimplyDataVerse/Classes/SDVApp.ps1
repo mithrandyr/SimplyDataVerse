@@ -1,12 +1,12 @@
 Class SDVApp {
     static [CacheSvc] $Cache = [CacheSvc]::new()
     static [SchemaCache] $Schema = [SchemaCache]::new()
-    hidden static [hashtable] $Tables = @{}
-    hidden static [hashtable] $TableMap = @{}
+    hidden static [hashtable] $Tables = @{} # by EntitySetName
+    hidden static [hashtable] $TableMap = @{} #logicalName to entitysetName
     
     static [void] InitializeSchema() { [SDVApp]::Schema.Initialize() }
     
-    #region Schema (tables/ columns)
+#region Schema (tables/ columns)
     static [void] RefreshSchema() {
         $tableColumnsToLoad = [SDVApp]::Tables.Values.where({$_.HasAttributeDetails}).EntitySetName
         $metaDataHash = [SDVApp]::RefreshMetaData()
@@ -148,8 +148,9 @@ Class SDVApp {
         foreach($x in $result.Edmx.DataServices.Schema.EntityType) { $mdInfo[$x.Name] = $x }
         return $mdInfo
     }
+#endregion
 
-    #region Environment/Baseuri/Headers/Token
+#region Environment/Baseuri/Headers/Token
     static [hashtable] GetBaseHeaders() { return [SDVApp]::GetBaseHeaders([SDVApp]::GetToken()) }
     static [hashtable] GetBaseHeaders([string]$token) {
         return @{
@@ -212,5 +213,5 @@ Class SDVApp {
         [SDVApp]::_baseUri = $uri + 'api/data/v9.2/'
     }
     static [string] GetBaseUri() { return [SDVApp]::_baseUri }
-    #endregion
+#endregion
 }

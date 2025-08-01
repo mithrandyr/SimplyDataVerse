@@ -7,7 +7,6 @@ function Get-DataVerseColumns {
     param([Parameter(Mandatory)][string]$EntitySetName
         , [Parameter()][ValidateSet("Custom","Updateable","All")][string]$Options = "Custom"
     )
-
     $LogicalName = [SDVApp]::Schema.LogicalName($EntitySetName)
     
     $cols = @(
