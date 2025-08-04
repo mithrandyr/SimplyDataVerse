@@ -39,7 +39,12 @@ function Set-DataVerseRow {
                 $colES = [SDVApp]::TableMap[$col.DataType]
                 $colId = [SDVApp]::GetTableIdAttribute($colES)
                 $colName = $col.LogicalName
-                $colValue = "{0}({1})" -f $colES, $InputObject.$colName.$colid
+                if($InputObject.$colName -is [psobject]) {
+                    $colValue = "{0}({1})" -f $colES, $InputObject.$colName.$colid
+                } else {
+                    $colValue = "{0}({1})" -f $colES, $InputObject.$colName
+                }
+                
                 $colName += "@odata.bind"
                 $htForUpdate[$colName] = $colValue
             } else {                

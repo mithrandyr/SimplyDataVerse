@@ -30,9 +30,7 @@ Function CreateRowFromResponse {
                     #$ht.__OriginalValues[$display] = $Object.$name.$idName
                 } else {                    
                     $rawName = $attribute.RawName
-                    $ht.$display = [PSObject]@{
-                        $idName = $Object.$rawName
-                    }
+                    $ht.$display = $Object.$rawName
                     #$ht.__OriginalValues[$display] = $Object.$rawName
                 }
             } else {
